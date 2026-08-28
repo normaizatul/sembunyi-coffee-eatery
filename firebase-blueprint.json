@@ -1,0 +1,71 @@
+{
+  "collections": {
+    "menu": {
+      "title": "Menu Items",
+      "description": "List of restaurant menu dishes and drinks",
+      "fields": {
+        "id": { "type": "string", "description": "Unique menu item ID" },
+        "nameMs": { "type": "string", "description": "Name in Malay" },
+        "nameEn": { "type": "string", "description": "Name in English" },
+        "descriptionMs": { "type": "string", "description": "Description in Malay" },
+        "descriptionEn": { "type": "string", "description": "Description in English" },
+        "price": { "type": "number", "description": "Price in MYR" },
+        "category": { "type": "string", "description": "Category slug" },
+        "imageUrl": { "type": "string", "description": "Image URL" },
+        "calories": { "type": "number", "description": "Calorie count" },
+        "prepTimeMinutes": { "type": "number", "description": "Preparation time in minutes" },
+        "isHalal": { "type": "boolean", "description": "Halal certification indicator" },
+        "isSpicy": { "type": "boolean", "description": "Spicy indicator" },
+        "isVegetarian": { "type": "boolean", "description": "Vegetarian indicator" },
+        "isPopular": { "type": "boolean", "description": "Popular item tag" },
+        "isAvailable": { "type": "boolean", "description": "In stock status" }
+      }
+    },
+    "orders": {
+      "title": "Customer Orders",
+      "description": "Placed food and drink orders",
+      "fields": {
+        "id": { "type": "string", "description": "Unique order ID" },
+        "tableNumber": { "type": "string", "description": "Table number" },
+        "customerName": { "type": "string", "description": "Customer name" },
+        "items": { "type": "array", "description": "Ordered items list" },
+        "subtotal": { "type": "number", "description": "Subtotal MYR" },
+        "tax": { "type": "number", "description": "SST tax MYR" },
+        "totalAmount": { "type": "number", "description": "Total amount MYR" },
+        "status": { "type": "string", "description": "diterima | memasak | sedia | selesai | dibatalkan" },
+        "paymentMethod": { "type": "string", "description": "Payment method used" },
+        "isPaid": { "type": "boolean", "description": "Payment status" },
+        "createdAt": { "type": "string", "description": "ISO timestamp of creation" },
+        "estimatedMinutes": { "type": "number", "description": "Estimated preparation time" },
+        "estimatedCompletionTime": { "type": "string", "description": "ISO timestamp of estimated completion time" },
+        "feedback": { "type": "object", "description": "Customer meal rating, review text, quick tags and submission timestamp" },
+        "paymentDetails": { "type": "object", "description": "Payment gateway reference, transaction ID, bank and paid timestamp" }
+      }
+    },
+    "tables": {
+      "title": "Restaurant Tables",
+      "description": "Floor table status and active order tracking",
+      "fields": {
+        "tableNumber": { "type": "string", "description": "Table identifier" },
+        "seats": { "type": "number", "description": "Seating capacity" },
+        "status": { "type": "string", "description": "kosong | menunggu_makanan | sedang_dijamu | panggil_pelayan | minta_bil" },
+        "activeOrderId": { "type": "string", "description": "Active order ID if seated" },
+        "lastServiceCall": { "type": "string", "description": "Last waiter call time" }
+      }
+    }
+  },
+  "securityRules": {
+    "match /menu/{menuId}": {
+      "allow read": "true",
+      "allow write": "true"
+    },
+    "match /orders/{orderId}": {
+      "allow read": "true",
+      "allow create, update": "true"
+    },
+    "match /tables/{tableId}": {
+      "allow read": "true",
+      "allow write": "true"
+    }
+  }
+}

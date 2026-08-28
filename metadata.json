@@ -1,0 +1,8 @@
+{
+  "name": "Remix SmartDinePlus",
+  "description": "Sistem Pesanan QR \u0026 Pengurusan Restoran Pintar (Smart Dining \u0026 QR Order Management System)",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
