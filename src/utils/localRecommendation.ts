@@ -10,7 +10,17 @@ export function getLocalRecommendation(
   language: LanguageType,
   menu: MenuItem[]
 ): LocalRecommendation {
-  const query = prompt.toLowerCase();
+  const normalizeQuery = (value: string) => value
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/chicken\s*cho+p|chiken\s*chop/g, 'chicken chop')
+    .replace(/speg+h?etti|spageti|spagetti/g, 'spaghetti')
+    .replace(/carbanara|carbonera/g, 'carbonara')
+    .replace(/aglio\s*olio|aglioolio/g, 'aglio olio')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const query = normalizeQuery(prompt);
   const available = menu.filter((item) => item.isAvailable !== false);
   const matches = (...words: string[]) => words.some((word) => query.includes(word));
   let dishes: MenuItem[] = [];
@@ -18,12 +28,13 @@ export function getLocalRecommendation(
   // First identify dishes explicitly named by the guest.
   const namedDishes = available.filter((item) => {
     const names = [item.nameMs, item.nameEn]
-      .map((name) => name.toLowerCase().replace(/with|homemade|sauce|dan|dengan/g, ' '));
+      .map((name) => normalizeQuery(name).replace(/with|homemade|sauce|dan|dengan/g, ' '));
     const importantWords = names.flatMap((name) => name.split(/[^a-z0-9]+/i))
       .filter((word) => word.length >= 4 && !['chicken', 'ayam', 'menu'].includes(word));
     const hasSpecificWord = importantWords.some((word) => query.includes(word));
-    const chickenChop = query.includes('chicken chop') && item.nameEn.toLowerCase().includes('chicken chop');
-    return chickenChop || hasSpecificWord;
+    const chickenChop = query.includes('chicken chop') && normalizeQuery(item.nameEn).includes('chicken chop');
+    const spaghetti = query.includes('spaghetti') && normalizeQuery(item.nameEn).includes('spaghetti');
+    return chickenChop || spaghetti || hasSpecificWord;
   });
 
   if (namedDishes.length) {
