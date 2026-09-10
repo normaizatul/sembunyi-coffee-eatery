@@ -96,6 +96,21 @@ export const SmartDineAIBot: React.FC<SmartDineAIBotProps> = ({
         body: JSON.stringify({
           prompt: promptToSend,
           language,
+          menu: menu.map((item) => ({
+            id: item.id,
+            nameMs: item.nameMs,
+            nameEn: item.nameEn,
+            descriptionMs: item.descriptionMs,
+            descriptionEn: item.descriptionEn,
+            price: item.price,
+            category: item.category,
+            calories: item.calories,
+            prepTimeMinutes: item.prepTimeMinutes,
+            allergens: item.allergens || [],
+            isAvailable: item.isAvailable,
+            isPopular: item.isPopular,
+            isSpicy: item.isSpicy,
+          })),
         }),
       }).finally(() => window.clearTimeout(timeoutId));
 
