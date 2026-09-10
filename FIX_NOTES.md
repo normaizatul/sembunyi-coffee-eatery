@@ -9,6 +9,7 @@
 - Customer name and Malaysian mobile number are validated before submission.
 - Order IDs now use a timestamp-based value to greatly reduce collisions.
 - SmartDine chat now falls back to a built-in menu recommendation engine when the AI/API endpoint is unavailable.
+- Added a native Vercel serverless endpoint at `api/ai/recommend.ts` so Gemini chat works on Vercel.
 - The fallback uses the live menu and supports spicy, budget, drinks, burgers, western food, pasta/pizza, and dessert requests in BM or English.
 
 ## Verification
