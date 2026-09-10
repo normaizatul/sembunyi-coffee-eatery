@@ -11,7 +11,7 @@ interface CartDrawerProps {
   onUpdateQuantity: (cartItemId: string, newQty: number) => void;
   onRemoveItem: (cartItemId: string) => void;
   onClearCart: () => void;
-  onOrderSubmitted: (order: Order) => void;
+  onOrderSubmitted: (order: Order) => Promise<Order>;
   language: LanguageType;
 }
 
@@ -30,6 +30,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [customerName, setCustomerName] = useState('Cik Nourul');
   const [customerPhone, setCustomerPhone] = useState('0123456789');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   if (!isOpen) return null;
 
@@ -40,6 +41,16 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
   const handleSubmitOrder = async () => {
     if (safeCart.length === 0) return;
+    if (!customerName.trim()) {
+      setSubmitError(isMs ? 'Sila masukkan nama pemesan.' : 'Please enter the customer name.');
+      return;
+    }
+    const normalizedPhone = customerPhone.replace(/[\s-]/g, '');
+    if (!/^01\d{8,9}$/.test(normalizedPhone)) {
+      setSubmitError(isMs ? 'Sila masukkan nombor telefon Malaysia yang sah.' : 'Please enter a valid Malaysian phone number.');
+      return;
+    }
+    setSubmitError('');
     setIsSubmitting(true);
 
     const prepTimes = safeCart.map((c) => c?.menuItem?.prepTimeMinutes || 10);
@@ -47,10 +58,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     const now = new Date();
     const completionTime = new Date(now.getTime() + prepTime * 60 * 1000).toISOString();
 
-    const newOrderPayload: Partial<Order> = {
+    const newOrderPayload: Order = {
+      id: `ORD-${Date.now().toString().slice(-8)}`,
       tableNumber,
       customerName: customerName.trim() || 'Tetamu',
-      customerPhone: customerPhone.trim() || '0123456789',
+      customerPhone: normalizedPhone,
       items: safeCart,
       subtotal,
       tax,
@@ -64,19 +76,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     };
 
     try {
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newOrderPayload),
-      });
-      const data = await res.json();
-      if (data.success) {
-        onOrderSubmitted(data.order);
-        onClearCart();
-        onClose();
-      }
+      await onOrderSubmitted(newOrderPayload);
+      onClearCart();
+      onClose();
     } catch (error) {
       console.error('Submit order failed:', error);
+      setSubmitError(isMs
+        ? 'Pesanan gagal dihantar. Semak sambungan internet dan cuba lagi.'
+        : 'Your order could not be submitted. Check your connection and try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -355,6 +362,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   </>
                 )}
               </button>
+              {submitError && (
+                <p role="alert" className="text-xs text-rose-300 bg-rose-950/50 border border-rose-500/40 rounded-lg p-2.5">
+                  {submitError}
+                </p>
+              )}
             </div>
           )}
         </div>

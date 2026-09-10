@@ -1,5 +1,5 @@
 import React from 'react';
-import { QrCode, ShoppingBag, ChefHat, Users, LayoutDashboard, Sparkles, Globe, Lock, Unlock, LogOut, ShieldAlert } from 'lucide-react';
+import { QrCode, ShoppingBag, ChefHat, Users, LayoutDashboard, Sparkles, Globe, Lock, Unlock, LogOut, ShieldAlert, MapPin, Info, Gamepad2 } from 'lucide-react';
 import { LanguageType } from '../types';
 import { SembunyiLogo } from './SembunyiLogo';
 
@@ -18,6 +18,8 @@ interface NavbarProps {
   isStaffAuthenticated: boolean;
   onOpenStaffLogin: (targetView?: 'kitchen' | 'waiter' | 'admin') => void;
   onStaffLogout: () => void;
+  onOpenAboutCafe?: () => void;
+  onOpenMiniGames?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -35,6 +37,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   isStaffAuthenticated,
   onOpenStaffLogin,
   onStaffLogout,
+  onOpenAboutCafe,
+  onOpenMiniGames,
 }) => {
   const isMs = language === 'ms';
 
@@ -78,18 +82,38 @@ export const Navbar: React.FC<NavbarProps> = ({
       ) : (
         <div className="bg-gradient-to-r from-amber-600 via-amber-700 to-amber-800 px-4 py-1.5 text-xs text-amber-100 flex items-center justify-between font-medium shadow-inner">
           <div className="flex items-center gap-2 max-w-7xl mx-auto w-full justify-between">
-            <span className="flex items-center gap-2 truncate">
+            <div className="flex items-center gap-2 truncate">
               <span className="bg-black/30 px-2 py-0.5 rounded text-[10px] font-black tracking-wider uppercase border border-amber-300/30 text-amber-200">
                 ☕ sembunyi.
               </span>
               <span className="text-amber-100 font-semibold truncate text-[11px] sm:text-xs">
                 coffee & eatery — Good Food ✦ Good Coffee ✦ Good Vibes ♡
               </span>
-            </span>
-            <div className="flex items-center gap-3">
+            </div>
+            <div className="flex items-center gap-2">
+              {onOpenMiniGames && (
+                <button
+                  onClick={onOpenMiniGames}
+                  className="bg-black/30 hover:bg-black/50 px-2.5 py-0.5 rounded-lg flex items-center gap-1.5 transition-colors text-amber-200 hover:text-white text-[11px] font-bold border border-amber-400/40 cursor-pointer shadow-sm"
+                  title={isMs ? 'Main 3 Permainan Santai Kafe Sembunyi' : 'Play 3 Sembunyi Cafe Mini-Games'}
+                >
+                  <Gamepad2 className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                  <span className="inline">{isMs ? '🎮 Permainan Kafe' : '🎮 Mini Games'}</span>
+                </button>
+              )}
+              {onOpenAboutCafe && (
+                <button
+                  onClick={onOpenAboutCafe}
+                  className="bg-black/25 hover:bg-black/45 px-2.5 py-0.5 rounded-lg flex items-center gap-1.5 transition-colors text-amber-100 hover:text-white text-[11px] font-bold border border-amber-300/30 cursor-pointer"
+                  title="Tentang Kafe Sembunyi & Lokasi"
+                >
+                  <MapPin className="w-3.5 h-3.5 text-amber-300" />
+                  <span className="hidden xs:inline">{isMs ? 'Tentang Kafe' : 'About Cafe'}</span>
+                </button>
+              )}
               <button
                 onClick={() => setLanguage(language === 'ms' ? 'en' : 'ms')}
-                className="bg-black/20 hover:bg-black/40 px-2.5 py-0.5 rounded-lg flex items-center gap-1 transition-colors text-white text-[11px] font-bold border border-amber-300/20"
+                className="bg-black/20 hover:bg-black/40 px-2.5 py-0.5 rounded-lg flex items-center gap-1 transition-colors text-white text-[11px] font-bold border border-amber-300/20 cursor-pointer"
                 title="Tukar Bahasa"
               >
                 <Globe className="w-3.5 h-3.5" />

@@ -11,36 +11,38 @@ interface DishModalProps {
 }
 
 export const DishModal: React.FC<DishModalProps> = ({ item, onClose, onAddToCart, language }) => {
-  if (!item) return null;
-
   const isMs = language === 'ms';
 
   const [quantity, setQuantity] = useState(1);
   const [selectedPatty, setSelectedPatty] = useState<string | undefined>(
-    item.customization?.pattyChoices ? item.customization.pattyChoices[0] : undefined
+    item?.customization?.pattyChoices ? item.customization.pattyChoices[0] : undefined
   );
   const [selectedTemperature, setSelectedTemperature] = useState<string | undefined>(
-    item.customization?.temperatures ? item.customization.temperatures[0] : undefined
+    item?.customization?.temperatures ? item.customization.temperatures[0] : undefined
   );
   const [selectedSpice, setSelectedSpice] = useState<string | undefined>(
-    item.customization?.spiceLevels ? item.customization.spiceLevels[0] : undefined
+    item?.customization?.spiceLevels ? item.customization.spiceLevels[0] : undefined
   );
   const [selectedSugar, setSelectedSugar] = useState<string | undefined>(
-    item.customization?.sugarLevels ? item.customization.sugarLevels[0] : undefined
+    item?.customization?.sugarLevels ? item.customization.sugarLevels[0] : undefined
   );
   const [selectedAddOns, setSelectedAddOns] = useState<CustomizeOption[]>([]);
   const [specialInstruction, setSpecialInstruction] = useState('');
 
   // Reset state on modal item change
   useEffect(() => {
-    setQuantity(1);
-    setSelectedPatty(item.customization?.pattyChoices ? item.customization.pattyChoices[0] : undefined);
-    setSelectedTemperature(item.customization?.temperatures ? item.customization.temperatures[0] : undefined);
-    setSelectedSpice(item.customization?.spiceLevels ? item.customization.spiceLevels[0] : undefined);
-    setSelectedSugar(item.customization?.sugarLevels ? item.customization.sugarLevels[0] : undefined);
-    setSelectedAddOns([]);
-    setSpecialInstruction('');
+    if (item) {
+      setQuantity(1);
+      setSelectedPatty(item.customization?.pattyChoices ? item.customization.pattyChoices[0] : undefined);
+      setSelectedTemperature(item.customization?.temperatures ? item.customization.temperatures[0] : undefined);
+      setSelectedSpice(item.customization?.spiceLevels ? item.customization.spiceLevels[0] : undefined);
+      setSelectedSugar(item.customization?.sugarLevels ? item.customization.sugarLevels[0] : undefined);
+      setSelectedAddOns([]);
+      setSpecialInstruction('');
+    }
   }, [item]);
+
+  if (!item) return null;
 
   const toggleAddOn = (addon: CustomizeOption) => {
     if (selectedAddOns.some((a) => a.id === addon.id)) {

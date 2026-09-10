@@ -14,6 +14,9 @@ import { StaffAuthModal } from './components/StaffAuthModal';
 import { SembunyiLogo } from './components/SembunyiLogo';
 import { PromoCarousel } from './components/PromoCarousel';
 import { PaymentModal } from './components/PaymentModal';
+import { AboutCafeSection } from './components/AboutCafeSection';
+import { AboutCafeModal, GOOGLE_MAPS_URL } from './components/AboutCafeModal';
+import { CafeMiniGamesModal } from './components/minigames/CafeMiniGamesModal';
 
 import { MenuItem, CartItem, Order, TableInfo, CategoryType, LanguageType, OrderStatus, OrderFeedback, PaymentDetails } from './types';
 import { INITIAL_MENU_ITEMS, INITIAL_TABLES } from './data/initialMenu';
@@ -29,7 +32,7 @@ import {
   callWaiterInFirestore,
   submitOrderFeedbackInFirestore,
 } from './lib/firestoreService';
-import { QrCode, Sparkles, Utensils, HeartHandshake, CheckCircle2, ChevronRight, PhoneCall, Lock, ShieldCheck } from 'lucide-react';
+import { QrCode, Sparkles, Utensils, HeartHandshake, CheckCircle2, ChevronRight, PhoneCall, Lock, ShieldCheck, MapPin, Info, Gamepad2 } from 'lucide-react';
 
 // Helper function to play a pleasant notification chime sound using Web Audio API
 function playNotificationChime() {
@@ -87,18 +90,19 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState<CategoryType>('semua');
   const [selectedStation, setSelectedStation] = useState<'all' | 'cashier_1' | 'cashier_2'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [halalOnly, setHalalOnly] = useState(false);
   const [spicyOnly, setSpicyOnly] = useState(false);
   const [vegOnly, setVegOnly] = useState(false);
 
   // Modals state
   const [isTableModalOpen, setIsTableModalOpen] = useState(false);
+  const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [selectedDishModal, setSelectedDishModal] = useState<MenuItem | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [activeOrderTracker, setActiveOrderTracker] = useState<Order | null>(null);
   const [activePaymentOrder, setActivePaymentOrder] = useState<Order | null>(null);
   const [isAiBotOpen, setIsAiBotOpen] = useState(false);
   const [pickupAlertOrder, setPickupAlertOrder] = useState<Order | null>(null);
+  const [isMiniGamesModalOpen, setIsMiniGamesModalOpen] = useState(false);
 
   // Staff mode auth handlers
   const handleOpenStaffLogin = (targetView: 'kitchen' | 'waiter' | 'admin' = 'kitchen') => {
@@ -222,9 +226,12 @@ export default function App() {
   const handleOrderSubmitted = async (newOrder: Order) => {
     try {
       const savedOrder = await createOrderInFirestore(newOrder);
+      setOrders((prev) => [savedOrder, ...prev.filter((order) => order.id !== savedOrder.id)]);
       setActiveOrderTracker(savedOrder);
+      return savedOrder;
     } catch (err) {
       console.error('Error saving order to Firestore:', err);
+      throw err;
     }
   };
 
@@ -307,7 +314,6 @@ export default function App() {
     if (selectedStation === 'cashier_2' && item.cashierStation !== 'cashier_2') return false;
     if (selectedStation === 'cashier_1' && item.cashierStation === 'cashier_2') return false;
     if (activeCategory !== 'semua' && item.category !== activeCategory) return false;
-    if (halalOnly && !item.isHalal) return false;
     if (spicyOnly && !item.isSpicy) return false;
     if (vegOnly && !item.isVegetarian) return false;
 
@@ -351,6 +357,8 @@ export default function App() {
         isStaffAuthenticated={isStaffAuthenticated}
         onOpenStaffLogin={handleOpenStaffLogin}
         onStaffLogout={handleStaffLogout}
+        onOpenAboutCafe={() => setIsAboutModalOpen(true)}
+        onOpenMiniGames={() => setIsMiniGamesModalOpen(true)}
       />
 
       {/* Main Content Render based on Active View */}
@@ -458,29 +466,80 @@ export default function App() {
                         <p className="text-slate-400 text-xs mt-2 max-w-xl hidden sm:block">
                           Pilih hidangan Barat, pasta lazat, rice set, croffle & kopi segar. Sesuaikan kepedasan, tahap gula & pilihan suhu (panas/sejuk) mengikut citarasa anda!
                         </p>
+
+                        <div className="flex flex-wrap items-center gap-2 mt-3">
+                          <button
+                            onClick={() => setIsAboutModalOpen(true)}
+                            className="bg-amber-500/20 hover:bg-amber-500/35 text-amber-300 border border-amber-500/40 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                          >
+                            <Info className="w-3.5 h-3.5 text-amber-400" />
+                            <span>{language === 'ms' ? 'Tentang Kafe & Lokasi' : 'About Cafe & Location'}</span>
+                          </button>
+                          <button
+                            onClick={() => setIsMiniGamesModalOpen(true)}
+                            className="bg-gradient-to-r from-amber-500/25 to-purple-500/25 hover:from-amber-500/40 hover:to-purple-500/40 text-amber-200 border border-amber-400/40 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                          >
+                            <Gamepad2 className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                            <span>{language === 'ms' ? '🎮 3 Permainan Kafe' : '🎮 3 Cafe Games'}</span>
+                          </button>
+                          <a
+                            href={GOOGLE_MAPS_URL}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-300 border border-emerald-500/40 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                          >
+                            <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>Google Maps</span>
+                          </a>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Active Order Tracker Pill Button */}
+                    {/* Active Order Tracker Pill Button & Game Trigger */}
                     {activeTableOrder ? (
-                      <button
-                        onClick={() => setActiveOrderTracker(activeTableOrder)}
-                        className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-5 py-3 rounded-2xl shadow-xl shadow-amber-500/20 transition-all flex items-center gap-3 text-xs shrink-0 group"
-                      >
-                        <div className="w-3 h-3 rounded-full bg-slate-950 animate-ping" />
-                        <div className="text-left">
-                          <p className="text-[10px] uppercase tracking-wider font-extrabold opacity-80">Pesanan Aktif In-Progress</p>
-                          <p className="text-sm font-black">Pesanan #{activeTableOrder.id} ({activeTableOrder.status.toUpperCase()})</p>
-                        </div>
-                        <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                      </button>
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0">
+                        <button
+                          onClick={() => setActiveOrderTracker(activeTableOrder)}
+                          className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-4 sm:px-5 py-3 rounded-2xl shadow-xl shadow-amber-500/20 transition-all flex items-center gap-2.5 text-xs group cursor-pointer"
+                        >
+                          <div className="w-3 h-3 rounded-full bg-slate-950 animate-ping" />
+                          <div className="text-left">
+                            <p className="text-[10px] uppercase tracking-wider font-extrabold opacity-80">
+                              {language === 'ms' ? 'Pesanan Aktif Sedang Diproses' : 'Active Order In-Progress'}
+                            </p>
+                            <p className="text-xs sm:text-sm font-black">
+                              {language === 'ms'
+                                ? `Pesanan #${activeTableOrder.id} (${activeTableOrder.status === 'sedia' ? 'SEDIA' : activeTableOrder.status === 'memasak' ? 'MEMASAK' : 'DITERIMA'})`
+                                : `Order #${activeTableOrder.id} (${activeTableOrder.status.toUpperCase()})`}
+                            </p>
+                          </div>
+                          <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                        </button>
+
+                        <button
+                          onClick={() => setIsMiniGamesModalOpen(true)}
+                          className="bg-gradient-to-r from-purple-600 via-indigo-600 to-amber-600 hover:from-purple-500 hover:to-amber-500 text-white font-black px-4 py-3 rounded-2xl shadow-xl shadow-purple-500/25 transition-all flex items-center justify-center gap-2 text-xs cursor-pointer group"
+                        >
+                          <Gamepad2 className="w-5 h-5 text-amber-300 group-hover:rotate-12 transition-transform" />
+                          <div className="text-left">
+                            <p className="text-[10px] uppercase tracking-wider font-extrabold text-amber-200">
+                              {language === 'ms' ? 'Sementara Menunggu Makanan' : 'While Waiting For Food'}
+                            </p>
+                            <p className="text-xs font-black">
+                              {language === 'ms' ? '🎮 3 Permainan Kafe' : '🎮 3 Cafe Mini-Games'}
+                            </p>
+                          </div>
+                        </button>
+                      </div>
                     ) : (
                       <button
                         onClick={() => setIsTableModalOpen(true)}
-                        className="bg-slate-900/90 hover:bg-slate-800 text-amber-400 border border-amber-500/40 font-bold px-4 py-3 rounded-2xl shadow-lg transition-all flex items-center gap-2.5 text-xs shrink-0"
+                        className="bg-slate-900/90 hover:bg-slate-800 text-amber-400 border border-amber-500/40 font-bold px-4 py-3 rounded-2xl shadow-lg transition-all flex items-center gap-2.5 text-xs shrink-0 cursor-pointer"
                       >
                         <QrCode className="w-5 h-5 text-amber-400" />
-                        <span>Tukar Meja / Imbas Meja {tableNumber}</span>
+                        <span>
+                          {language === 'ms' ? `Tukar Meja / Imbas Meja ${tableNumber}` : `Change Table / Scan Table ${tableNumber}`}
+                        </span>
                       </button>
                     )}
                   </div>
@@ -499,8 +558,6 @@ export default function App() {
                   onSelectCategory={setActiveCategory}
                   searchQuery={searchQuery}
                   onSearchChange={setSearchQuery}
-                  halalOnly={halalOnly}
-                  onToggleHalal={() => setHalalOnly(!halalOnly)}
                   spicyOnly={spicyOnly}
                   onToggleSpicy={() => setSpicyOnly(!spicyOnly)}
                   vegOnly={vegOnly}
@@ -529,6 +586,12 @@ export default function App() {
                     ))}
                   </div>
                 )}
+
+                {/* About Sembunyi Cafe Section (Placed at the bottom of the menu) */}
+                <AboutCafeSection
+                  language={language}
+                  onOpenDetailsModal={() => setIsAboutModalOpen(true)}
+                />
               </div>
             )}
 
@@ -573,6 +636,7 @@ export default function App() {
         menu={menu}
         onSelectDish={(d) => setSelectedDishModal(d)}
         language={language}
+        onLanguageChange={setLanguage}
       />
 
       {/* Modals & Drawers */}
@@ -608,7 +672,6 @@ export default function App() {
         onRemoveItem={handleRemoveFromCart}
         onClearCart={handleClearCart}
         onOrderSubmitted={handleOrderSubmitted}
-        onOpenPayment={(ord) => setActivePaymentOrder(ord)}
         language={language}
       />
 
@@ -618,6 +681,15 @@ export default function App() {
         onCallWaiter={handleCallWaiter}
         onFeedbackSubmit={handleOrderFeedback}
         onOpenPayment={(ord) => setActivePaymentOrder(ord)}
+        onOpenMiniGames={() => setIsMiniGamesModalOpen(true)}
+        language={language}
+      />
+
+      {/* Sembunyi Cafe 3 Mini-Games Modal (Waiting Lounge) */}
+      <CafeMiniGamesModal
+        isOpen={isMiniGamesModalOpen}
+        onClose={() => setIsMiniGamesModalOpen(false)}
+        order={activeOrderTracker || activeTableOrder}
         language={language}
       />
 
@@ -629,11 +701,39 @@ export default function App() {
         language={language}
       />
 
+      {/* About Kafe Sembunyi Modal */}
+      <AboutCafeModal
+        isOpen={isAboutModalOpen}
+        onClose={() => setIsAboutModalOpen(false)}
+        language={language}
+      />
+
       {/* Footer Branding */}
-      <footer className="bg-slate-900 border-t border-slate-800/80 py-4 text-center text-xs text-slate-500">
+      <footer className="bg-slate-900 border-t border-slate-800/80 py-5 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p>© 2026 SmartDinePlus Kafe Sembunyi — Project FYP Cik Nourul Ain. Hak Cipta Terpelihara.</p>
-          <div className="flex items-center gap-3 text-[11px] text-slate-400">
+          <div className="text-left">
+            <p className="font-bold text-slate-300">sembunyi. coffee & eatery</p>
+            <p className="text-[11px] text-slate-400">Kampung Tradisi, 06010 Changlun, Kedah Darul Aman • Tel/WhatsApp: <span className="text-emerald-400 font-semibold">017-357 4029</span></p>
+            <p className="text-[10px] text-amber-300/90 font-medium">Waktu Operasi: 5:00 PM — 12:00 AM (Buka Setiap Hari kecuali Rabu)</p>
+            <p className="text-[10px] text-slate-500 mt-0.5">© 2026 SmartDinePlus Kafe Sembunyi — Project FYP Cik Nourul Ain. Hak Cipta Terpelihara.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400">
+            <a
+              href={GOOGLE_MAPS_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="text-amber-400 hover:text-amber-300 flex items-center gap-1 font-bold underline cursor-pointer"
+            >
+              <MapPin className="w-3.5 h-3.5" />
+              <span>Google Maps</span>
+            </a>
+            <button
+              onClick={() => setIsAboutModalOpen(true)}
+              className="text-amber-300 hover:text-amber-200 cursor-pointer font-semibold"
+            >
+              {language === 'ms' ? 'Tentang Kafe' : 'About Cafe'}
+            </button>
+            <span>•</span>
             {isStaffAuthenticated ? (
               <button
                 onClick={handleStaffLogout}

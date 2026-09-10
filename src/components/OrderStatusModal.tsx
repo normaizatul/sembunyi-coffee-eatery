@@ -18,7 +18,8 @@ import {
   CreditCard,
   QrCode,
   ShieldCheck,
-  Banknote
+  Banknote,
+  Gamepad2
 } from 'lucide-react';
 import { Order, LanguageType, OrderFeedback } from '../types';
 import { submitOrderFeedbackInFirestore } from '../lib/firestoreService';
@@ -29,6 +30,7 @@ interface OrderStatusModalProps {
   onCallWaiter: (reason: string) => void;
   onFeedbackSubmit?: (orderId: string, feedback: OrderFeedback) => void;
   onOpenPayment?: (order: Order) => void;
+  onOpenMiniGames?: () => void;
   language: LanguageType;
 }
 
@@ -38,6 +40,7 @@ export const OrderStatusModal: React.FC<OrderStatusModalProps> = ({
   onCallWaiter,
   onFeedbackSubmit,
   onOpenPayment,
+  onOpenMiniGames,
   language,
 }) => {
   const [waiterCalled, setWaiterCalled] = useState(false);
@@ -489,6 +492,48 @@ export const OrderStatusModal: React.FC<OrderStatusModalProps> = ({
               <p className="text-[11px] text-slate-400 mt-2">
                 {isMs ? 'Dapur sedang menyediakan hidangan anda dengan teliti.' : 'Kitchen is preparing your dishes with care.'}
               </p>
+            </div>
+          )}
+
+          {/* Sembunyi Mini Games Waiting Lounge Feature Card */}
+          {order.status !== 'selesai' && onOpenMiniGames && (
+            <div className="bg-gradient-to-r from-amber-950/60 via-slate-900 to-amber-950/40 border-2 border-amber-500/50 rounded-2xl p-4 shadow-xl relative overflow-hidden">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="p-3 bg-amber-500 text-slate-950 rounded-2xl font-black shadow-lg shadow-amber-500/20 shrink-0">
+                    <Gamepad2 className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-extrabold text-sm text-white">
+                        {isMs ? '🎮 3 Permainan Kafe Sambil Menunggu!' : '🎮 3 Cafe Mini-Games While Waiting!'}
+                      </h4>
+                      <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold px-2 py-0.5 rounded-full">
+                        {isMs ? 'PERCUMA' : 'FREE'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                      {isMs
+                        ? '1. Bancuh Kopi Sembunyi • 2. Susun Menara Burger • 3. Uji Minda Padanan Menu. Uji ketangkasan & ingatan anda sekarang!'
+                        : '1. Barista Brew Rush • 2. Burger Stacker • 3. Food Memory Match. Have fun while waiting!'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between">
+                <span className="text-[11px] text-amber-300/90 font-semibold">
+                  ☕ {isMs ? 'Luangkan masa santai sementara pesanan disiapkan' : 'Enjoy relaxing games while your food is prepared'}
+                </span>
+                <button
+                  type="button"
+                  onClick={onOpenMiniGames}
+                  className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-amber-500/25 flex items-center gap-1.5 transition-all transform hover:scale-105 cursor-pointer"
+                >
+                  <Gamepad2 className="w-4 h-4" />
+                  <span>{isMs ? 'MULA MAIN' : 'PLAY NOW'}</span>
+                </button>
+              </div>
             </div>
           )}
 

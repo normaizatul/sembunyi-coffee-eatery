@@ -51,22 +51,12 @@ export const MenuCard: React.FC<MenuCardProps> = ({ item, onSelect, language }) 
               <span>PEDAS</span>
             </span>
           )}
-          {item.isHalal && (
-            <span className="bg-emerald-600/90 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md">
-              HALAL
-            </span>
-          )}
         </div>
 
-        {/* Estimated Preparation Time Badge */}
-        <div
-          className="absolute bottom-3 right-3 bg-slate-900/90 backdrop-blur-md text-slate-200 border border-slate-700/80 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 shadow-md"
-          title={isMs ? 'Anggaran masa penyediaan' : 'Estimated preparation time'}
-        >
+        {/* Prep Time Badge */}
+        <div className="absolute bottom-3 right-3 bg-slate-900/90 backdrop-blur-md text-slate-200 border border-slate-700/80 text-[11px] font-semibold px-2 py-1 rounded-lg flex items-center gap-1 shadow-md">
           <Clock className="w-3.5 h-3.5 text-emerald-400" />
-          <span>
-            {isMs ? 'Anggaran siap' : 'Est. ready'}: {item.prepTimeMinutes} min
-          </span>
+          <span>{item.prepTimeMinutes} {isMs ? 'min' : 'mins'}</span>
         </div>
       </div>
 
@@ -100,7 +90,9 @@ export const MenuCard: React.FC<MenuCardProps> = ({ item, onSelect, language }) 
 
           <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
             <div>
-              <span className="text-[10px] text-slate-400 block font-medium uppercase tracking-wider">Harga</span>
+              <span className="text-[10px] text-slate-400 block font-medium uppercase tracking-wider">
+                {isMs ? 'Harga' : 'Price'}
+              </span>
               <span className="text-lg font-black text-emerald-400">
                 RM {item.price.toFixed(2)}
               </span>

@@ -1,13 +1,26 @@
+import 'dotenv/config';
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { GoogleGenAI } from '@google/genai';
 import { INITIAL_MENU_ITEMS, INITIAL_TABLES } from './src/data/initialMenu';
 import { Order, MenuItem, TableInfo } from './src/types';
 
 const app = express();
-const PORT = 3000;
+
+// Port configuration:
+// - In local/dev container: MUST bind strictly to 3000 (reverse proxy routes to 3000).
+// - In Cloud Run production deployment: binds to process.env.PORT (injected by Cloud Run, defaults to 8080) or fallback to 3000.
+const PORT = process.env.NODE_ENV === 'production' && process.env.PORT
+  ? parseInt(process.env.PORT, 10)
+  : 3000;
 
 app.use(express.json());
+
+// API health endpoint for container readiness / liveness probes
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
+});
 
 // In-memory data store for live sessions & demo persistence
 let currentMenu: MenuItem[] = [...INITIAL_MENU_ITEMS];
@@ -252,72 +265,180 @@ app.post('/api/payment/cashier-pay', (req, res) => {
   }
 });
 
-// AI Recommendation Route (Gemini API Integration)
+// AI Recommendation Route (Gemini API Integration with Smart Fallback Engine)
 app.post('/api/ai/recommend', async (req, res) => {
-  try {
-    const { prompt, language = 'ms', currentCart = [] } = req.body;
+  const { prompt = '', language = 'ms', currentCart = [] } = req.body;
+  const isMs = language === 'ms';
+  const query = prompt.toLowerCase().trim();
 
-    const ai = getGeminiClient();
+  // Helper: Smart Fallback Recommendation Generator based on live menu
+  const generateLocalRecommendation = () => {
+    let matchedDishes: MenuItem[] = [];
+    let replyText = '';
 
-    const menuSummary = currentMenu
-      .map(
-        (m) =>
-          `- [ID: ${m.id}] ${m.nameMs} / ${m.nameEn} (RM${m.price.toFixed(
-            2
-          )}, ${m.calories} kcal, Prep: ${m.prepTimeMinutes}m) [Tag: ${
-            m.category
-          }, Spicy: ${m.isSpicy ? 'Ya' : 'Tidak'}, Popular: ${
-            m.isPopular ? 'Ya' : 'Tidak'
-          }]: ${m.descriptionMs}`
-      )
-      .join('\n');
+    // Match criteria
+    const isSpicyQuery = query.includes('pedas') || query.includes('spicy') || query.includes('chili') || query.includes('samyang') || query.includes('hot');
+    const isBudgetQuery = query.includes('bajet') || query.includes('budget') || query.includes('murah') || query.includes('cheap') || query.includes('15') || query.includes('bawah');
+    const isDrinkQuery = query.includes('minum') || query.includes('drink') || query.includes('kopi') || query.includes('coffee') || query.includes('teh') || query.includes('segar') || query.includes('refresh') || query.includes('air');
+    const isBurgerQuery = query.includes('burger') || query.includes('daging') || query.includes('beef') || query.includes('cheeseburger') || query.includes('kaunter 2');
+    const isWesternQuery = query.includes('western') || query.includes('chop') || query.includes('lamb') || query.includes('grill') || query.includes('chicken chop') || query.includes('steak');
+    const isPastaPizza = query.includes('pasta') || query.includes('spaghetti') || query.includes('pizza') || query.includes('milano');
+    const isSweetDessert = query.includes('manis') || query.includes('dessert') || query.includes('croffle') || query.includes('sweet') || query.includes('pastri');
 
-    const systemInstruction = `
-You are SmartDine AI, an intelligent, helpful, and friendly virtual butler/waiter for the "SmartDinePlus" Smart Dining QR Restaurant System (created for Cik Nourul Ain's FYP project).
-Your job is to recommend food and drinks, answer questions about menu ingredients, calories, allergens, and suggest perfect food pairings or combos.
+    if (isSpicyQuery) {
+      matchedDishes = currentMenu.filter((m) => m.isSpicy || m.nameMs.toLowerCase().includes('samyang') || m.nameMs.toLowerCase().includes('pedas') || m.descriptionMs.toLowerCase().includes('pedas')).slice(0, 3);
+      if (matchedDishes.length === 0) matchedDishes = currentMenu.slice(0, 2);
+      
+      if (isMs) {
+        replyText = `Pilihan terbaik untuk peminat pedas! 🔥 Saya cadangkan **${matchedDishes.map((m) => m.nameMs).join('** dan **')}**.\n\nHidangan ini dimasak segar dengan rasa pedas yang menyengat dan membangkitkan selera. Anda juga boleh memilih tahap kepedasan mengikut citarasa semasa membuat pesanan.`;
+      } else {
+        replyText = `Here are our top spicy recommendations! 🔥 I highly recommend **${matchedDishes.map((m) => m.nameEn || m.nameMs).join('** and **')}**.\n\nThese dishes deliver a bold, spicy kick cooked to perfection. You can also customize your spice level directly when adding to cart.`;
+      }
+    } else if (isBudgetQuery) {
+      matchedDishes = currentMenu.filter((m) => m.price <= 15.00).sort((a, b) => a.price - b.price).slice(0, 3);
+      if (matchedDishes.length === 0) matchedDishes = currentMenu.slice(0, 2);
 
-Language: ${language === 'ms' ? 'Bahasa Melayu' : 'English'}.
+      if (isMs) {
+        replyText = `Pilihan hidangan bajet jimat (bawah RM15) yang lazat dan mengenyangkan! 💰\n\nSaya syorkan **${matchedDishes.map((m) => `${m.nameMs} (RM${m.price.toFixed(2)})`).join(', ')}**.\n\nPilihan yang sangat berbaloi untuk santapan harian anda di Kafe Sembunyi.`;
+      } else {
+        replyText = `Looking for great value under RM15? 💰\n\nI recommend **${matchedDishes.map((m) => `${m.nameEn || m.nameMs} (RM${m.price.toFixed(2)})`).join(', ')}**.\n\nDelicious, satisfying, and easy on your wallet.`;
+      }
+    } else if (isDrinkQuery) {
+      matchedDishes = currentMenu.filter((m) => m.category === 'coffee' || m.category === 'non_coffee' || m.category === 'sparkling_refresher').slice(0, 3);
+      if (matchedDishes.length === 0) matchedDishes = currentMenu.slice(0, 2);
+
+      if (isMs) {
+        replyText = `Untuk minuman yang menyegarkan tekak dan pembangkit semangat! ☕🥤\n\nCuba **${matchedDishes.map((m) => m.nameMs).join('**, **')}**.\n\nSesuai dinikmati sejuk bersama ketulan ais atau panas untuk menenangkan fikiran.`;
+      } else {
+        replyText = `Here are our most refreshing drinks and artisanal brews! ☕🥤\n\nI suggest trying **${matchedDishes.map((m) => m.nameEn || m.nameMs).join('**, **')}**.\n\nCrafted with premium beans and fresh ingredients for a delightful beverage experience.`;
+      }
+    } else if (isBurgerQuery) {
+      matchedDishes = currentMenu.filter((m) => m.category === 'sembunyi_burger' || m.cashierStation === 'cashier_2').slice(0, 3);
+      if (matchedDishes.length === 0) matchedDishes = currentMenu.slice(0, 2);
+
+      if (isMs) {
+        replyText = `Peminat burger sejati! 🍔 Nikmati hidangan istimewa dari Kaunter 2 (Sembunyi Burgers & Grill):\n\n**${matchedDishes.map((m) => m.nameMs).join('**, **')}**.\n\nPatty daging yang tebal dan berjus, disaluti sos buatan sendiri dan keju leleh.`;
+      } else {
+        replyText = `Calling all burger lovers! 🍔 Special creations from Counter 2 (Sembunyi Burgers & Grill):\n\n**${matchedDishes.map((m) => m.nameEn || m.nameMs).join('**, **')}**.\n\nFeaturing juicy, handcrafted patties topped with signature house sauces and melted cheese.`;
+      }
+    } else if (isWesternQuery) {
+      matchedDishes = currentMenu.filter((m) => m.category === 'western_grill' || m.category === 'main_dish').slice(0, 3);
+      if (matchedDishes.length === 0) matchedDishes = currentMenu.slice(0, 2);
+
+      if (isMs) {
+        replyText = `Pilihan hidangan Western Grill & Chop terhebat kami! 🥩🍗\n\nSaya amat syorkan **${matchedDishes.map((m) => m.nameMs).join('** dan **')}**.\n\nDihidangkan bersama sos lada hitam pekat buatan sendiri (*homemade blackpepper sauce*), kentang goreng rangup, dan coleslaw segar.`;
+      } else {
+        replyText = `Indulge in our signature Western Grills & Chops! 🥩🍗\n\nI highly recommend **${matchedDishes.map((m) => m.nameEn || m.nameMs).join('** and **')}**.\n\nServed with our signature rich homemade blackpepper sauce, crispy fries, and fresh salad.`;
+      }
+    } else if (isPastaPizza) {
+      matchedDishes = currentMenu.filter((m) => m.category === 'pasta' || m.category === 'pizza').slice(0, 3);
+      if (matchedDishes.length === 0) matchedDishes = currentMenu.slice(0, 2);
+
+      if (isMs) {
+        replyText = `Sajian cita rasa Itali Milano! 🍝🍕\n\nCuba hidangan popular kami: **${matchedDishes.map((m) => m.nameMs).join('** dan **')}**.\n\nKombinasi herba segar, keju berkualiti, dan sos buatan sendiri yang memikat selera.`;
+      } else {
+        replyText = `Italian culinary favorites! 🍝🍕\n\nTry our popular dishes: **${matchedDishes.map((m) => m.nameEn || m.nameMs).join('** and **')}**.\n\nRich in authentic flavors with generous melted cheese and aromatic herbs.`;
+      }
+    } else if (isSweetDessert) {
+      matchedDishes = currentMenu.filter((m) => m.category === 'croffle_pastry' || m.category === 'side_snack').slice(0, 3);
+      if (matchedDishes.length === 0) matchedDishes = currentMenu.slice(0, 2);
+
+      if (isMs) {
+        replyText = `Masa untuk pencuci mulut yang manis dan rangup! 🥐✨\n\nJangan lepaskan peluang mencuba **${matchedDishes.map((m) => m.nameMs).join('** dan **')}**.\n\nTekstur luar yang rangup dan lembut di dalam, enak dimakan bersama secawan kopi.`;
+      } else {
+        replyText = `Craving something sweet and crispy? 🥐✨\n\nDon't miss our **${matchedDishes.map((m) => m.nameEn || m.nameMs).join('** and **')}**.\n\nFlaky and buttery on the outside, soft inside, perfect when paired with an artisanal latte.`;
+      }
+    } else {
+      // General popular recommendation
+      matchedDishes = currentMenu.filter((m) => m.isPopular).slice(0, 3);
+      if (matchedDishes.length === 0) matchedDishes = currentMenu.slice(0, 3);
+
+      if (isMs) {
+        replyText = `Selamat datang ke Kafe Sembunyi! ✨ Antara hidangan paling laris dan digemari tetamu kami hari ini ialah:\n\n1. **${matchedDishes[0]?.nameMs}** (RM${matchedDishes[0]?.price.toFixed(2)})\n2. **${matchedDishes[1]?.nameMs || 'Minuman Istimewa'}** (RM${matchedDishes[1]?.price.toFixed(2) || '0.00'})\n\nAnda boleh klik kad hidangan di bawah untuk memilih pilihan spesifik dan memasukkannya terus ke dalam troli pesanan!`;
+      } else {
+        replyText = `Welcome to Kafe Sembunyi! ✨ Here are our most beloved chef specials and guest favorites today:\n\n1. **${matchedDishes[0]?.nameEn || matchedDishes[0]?.nameMs}** (RM${matchedDishes[0]?.price.toFixed(2)})\n2. **${matchedDishes[1]?.nameEn || matchedDishes[1]?.nameMs || 'Specialty Drink'}** (RM${matchedDishes[1]?.price.toFixed(2) || '0.00'})\n\nYou can click the suggested dish cards below to customize and add them directly to your order!`;
+      }
+    }
+
+    return {
+      text: replyText,
+      suggestedDishIds: matchedDishes.map((m) => m.id),
+    };
+  };
+
+  // Try calling Google Gemini if API key is present
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (apiKey && apiKey.trim() !== '') {
+    try {
+      const ai = getGeminiClient();
+
+      const menuSummary = currentMenu
+        .map(
+          (m) =>
+            `- [ID: ${m.id}] ${m.nameMs} / ${m.nameEn} (RM${m.price.toFixed(2)}, Prep: ${m.prepTimeMinutes}m, Station: ${m.cashierStation}) [Category: ${m.category}, Spicy: ${m.isSpicy ? 'Ya' : 'No'}, Popular: ${m.isPopular ? 'Ya' : 'No'}]: ${m.descriptionMs}`
+        )
+        .join('\n');
+
+      const systemInstruction = `
+You are SmartDine AI, a smart, polite, and welcoming virtual dining assistant for "SmartDinePlus" at Kafe Sembunyi (FYP Project of Cik Nourul Ain).
+Your role: Recommend food, answer menu questions, suggest pairings, and guide guests.
+
+MANDATORY LANGUAGE RULE:
+The user has requested the response in: ${isMs ? 'BAHASA MELAYU (MALAY)' : 'ENGLISH'}.
+You MUST respond 100% in ${isMs ? 'natural, friendly, polite Bahasa Melayu (e.g. "Selamat datang", "Saya mencadangkan...", "Selamat menjamu selera!")' : 'fluent, warm, professional English'}. Do not mix languages.
 
 Current Restaurant Menu:
 ${menuSummary}
 
-Items already in user cart: ${JSON.stringify(currentCart)}
+Cart contents: ${JSON.stringify(currentCart)}
 
-Guidelines:
-1. Be warm, professional, and concise.
-2. If recommending specific dishes from the menu, explicitly mention their exact name and ID so the UI can present them as clickable cards.
-3. End response with a short suggestion on how they can add the items to their order directly via the QR Menu.
+Formatting Instructions:
+1. Keep the response concise, friendly, and helpful (under 120 words).
+2. When mentioning dishes, highlight their exact menu names in bold (e.g. **Chicken Chop with Homemade Blackpepper Sauce** or **Burger Special**) so the guest recognizes them.
+3. Conclude with an encouraging remark inviting them to tap the dish cards to customize and place their order.
 `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
-      contents: prompt,
-      config: {
-        systemInstruction,
-        temperature: 0.7,
-      },
-    });
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.8-flash',
+        contents: prompt,
+        config: {
+          systemInstruction,
+          temperature: 0.7,
+        },
+      });
 
-    const replyText = response.text || 'Maaf, saya tidak dapat memproses permintaan anda sekarang.';
+      const replyText = response.text || '';
+      if (replyText.trim().length > 0) {
+        // Extract dish IDs mentioned in response text
+        const mentionedDishIds = currentMenu
+          .filter(
+            (m) =>
+              replyText.toLowerCase().includes(m.nameMs.toLowerCase()) ||
+              replyText.toLowerCase().includes(m.nameEn.toLowerCase()) ||
+              replyText.includes(m.id)
+          )
+          .map((m) => m.id);
 
-    // Extract dish IDs mentioned in response text
-    const mentionedDishIds = currentMenu
-      .filter((m) => replyText.toLowerCase().includes(m.nameMs.toLowerCase()) || replyText.toLowerCase().includes(m.nameEn.toLowerCase()) || replyText.includes(m.id))
-      .map((m) => m.id);
-
-    res.json({
-      success: true,
-      text: replyText,
-      suggestedDishIds: mentionedDishIds,
-    });
-  } catch (error: any) {
-    console.error('Error calling Gemini API:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Gagal menghubungi SmartDine AI.',
-      error: error?.message || 'Server error',
-    });
+        return res.json({
+          success: true,
+          text: replyText,
+          suggestedDishIds: mentionedDishIds.length > 0 ? mentionedDishIds.slice(0, 4) : currentMenu.filter(m => m.isPopular).slice(0, 2).map(m => m.id),
+        });
+      }
+    } catch (geminiError: any) {
+      console.warn('Gemini API call failed, switching to local smart fallback engine:', geminiError?.message || geminiError);
+      // Seamlessly fall through to smart local fallback engine!
+    }
   }
+
+  // Fallback execution
+  const fallback = generateLocalRecommendation();
+  return res.json({
+    success: true,
+    text: fallback.text,
+    suggestedDishIds: fallback.suggestedDishIds,
+    mode: 'smart_engine',
+  });
 });
 
 // ---------------- STATIC FILES SETUP ----------------
@@ -335,16 +456,48 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    let distPath = path.join(process.cwd(), 'dist');
+    if (!fs.existsSync(distPath) && typeof __dirname !== 'undefined') {
+      distPath = __dirname;
+    }
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      const indexPath = path.join(distPath, 'index.html');
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        res.status(200).send('SmartDinePlus service is running.');
+      }
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`SmartDinePlus server running on http://localhost:${PORT}`);
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`SmartDinePlus server running on http://0.0.0.0:${PORT}`);
+  });
+
+  // In Cloud Run production: if PORT is not 3000, also bind port 3000 if available
+  if (process.env.NODE_ENV === 'production' && PORT !== 3000) {
+    try {
+      app.listen(3000, '0.0.0.0', () => {
+        console.log(`SmartDinePlus server also listening on fallback port 3000`);
+      }).on('error', () => {
+        // Safe no-op if port 3000 is unavailable
+      });
+    } catch {
+      // Safe no-op
+    }
+  }
+
+  // Graceful shutdown on SIGTERM (Cloud Run container lifecycle)
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM received: shutting down gracefully');
+    server.close(() => {
+      process.exit(0);
+    });
   });
 }
 
-startServer();
+startServer().catch((err) => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
+});

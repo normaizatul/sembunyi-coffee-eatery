@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Sparkles, Utensils, Coffee, Pizza, Flame, Layers, ShieldCheck, Heart, Cookie, CupSoda, Sandwich, Drumstick, Soup, Beef } from 'lucide-react';
+import { Search, Sparkles, Utensils, Coffee, Pizza, Flame, Layers, Heart, Cookie, CupSoda, Sandwich, Drumstick, Soup, Beef } from 'lucide-react';
 import { CategoryType, LanguageType } from '../types';
 
 interface CategoryFilterProps {
@@ -7,8 +7,6 @@ interface CategoryFilterProps {
   onSelectCategory: (cat: CategoryType) => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
-  halalOnly: boolean;
-  onToggleHalal: () => void;
   spicyOnly: boolean;
   onToggleSpicy: () => void;
   vegOnly: boolean;
@@ -23,8 +21,6 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
   onSelectCategory,
   searchQuery,
   onSearchChange,
-  halalOnly,
-  onToggleHalal,
   spicyOnly,
   onToggleSpicy,
   vegOnly,
@@ -74,18 +70,6 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
 
         {/* Dietary Constraint Toggles */}
         <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto text-xs no-scrollbar">
-          <button
-            onClick={onToggleHalal}
-            className={`px-3 py-1.5 rounded-xl border font-bold transition-all flex items-center gap-1.5 shrink-0 ${
-              halalOnly
-                ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-md'
-                : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-white'
-            }`}
-          >
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span>HALAL</span>
-          </button>
-
           <button
             onClick={onToggleSpicy}
             className={`px-3 py-1.5 rounded-xl border font-bold transition-all flex items-center gap-1.5 shrink-0 ${
