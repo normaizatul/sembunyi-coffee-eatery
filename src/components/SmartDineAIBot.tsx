@@ -87,14 +87,17 @@ export const SmartDineAIBot: React.FC<SmartDineAIBotProps> = ({
     setIsLoading(true);
 
     try {
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 12000);
       const res = await fetch('/api/ai/recommend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           prompt: promptToSend,
           language,
         }),
-      });
+      }).finally(() => window.clearTimeout(timeoutId));
 
       if (!res.ok) throw new Error(`AI endpoint returned ${res.status}`);
       const data = await res.json();
