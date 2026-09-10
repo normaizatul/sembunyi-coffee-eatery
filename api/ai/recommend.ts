@@ -1,8 +1,22 @@
-import { INITIAL_MENU_ITEMS } from '../../src/data/initialMenu';
+type MenuData = {
+  id: string;
+  nameMs: string;
+  nameEn: string;
+  descriptionMs: string;
+  descriptionEn: string;
+  price: number;
+  category: string;
+  calories: number;
+  prepTimeMinutes: number;
+  allergens?: string[];
+  isAvailable?: boolean;
+  isPopular?: boolean;
+  isSpicy?: boolean;
+};
 
 type ApiRequest = {
   method?: string;
-  body?: { prompt?: string; language?: 'ms' | 'en' };
+  body?: { prompt?: string; language?: 'ms' | 'en'; menu?: MenuData[] };
 };
 
 type ApiResponse = {
@@ -10,9 +24,9 @@ type ApiResponse = {
   json: (body: unknown) => void;
 };
 
-function localAnswer(prompt: string, language: 'ms' | 'en') {
+function localAnswer(prompt: string, language: 'ms' | 'en', menu: MenuData[]) {
   const query = prompt.toLowerCase();
-  const available = INITIAL_MENU_ITEMS.filter((item) => item.isAvailable !== false);
+  const available = menu.filter((item) => item.isAvailable !== false);
   let dishes = available.filter((item) => {
     const searchable = `${item.nameMs} ${item.nameEn} ${item.descriptionMs} ${item.descriptionEn} ${item.category}`.toLowerCase();
     return query.split(/\s+/).some((word) => word.length > 3 && searchable.includes(word));
@@ -38,15 +52,17 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   const prompt = req.body?.prompt?.trim() || '';
   const language = req.body?.language === 'en' ? 'en' : 'ms';
+  const menu = Array.isArray(req.body?.menu) ? req.body.menu.slice(0, 150) : [];
   if (!prompt) return res.status(400).json({ success: false, message: 'Prompt is required' });
+  if (!menu.length) return res.status(400).json({ success: false, message: 'Menu data is required' });
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return res.status(200).json({ success: true, ...localAnswer(prompt, language), mode: 'local' });
+    return res.status(200).json({ success: true, ...localAnswer(prompt, language, menu), mode: 'local' });
   }
 
   try {
-    const menuText = INITIAL_MENU_ITEMS.filter((item) => item.isAvailable !== false)
+    const menuText = menu.filter((item) => item.isAvailable !== false)
       .map((item) => `ID ${item.id}: ${item.nameMs} / ${item.nameEn}, RM${item.price.toFixed(2)}, ${item.descriptionMs}, ${item.calories} kcal, preparation ${item.prepTimeMinutes} minutes, allergens: ${(item.allergens || []).join(', ') || 'not stated'}`)
       .join('\n');
 
@@ -76,13 +92,13 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     const text = payload?.candidates?.[0]?.content?.parts?.map((part: any) => part.text || '').join('').trim();
     if (!text) throw new Error('Gemini returned an empty answer');
     const lower = text.toLowerCase();
-    const suggestedDishIds = INITIAL_MENU_ITEMS.filter((item) =>
+    const suggestedDishIds = menu.filter((item) =>
       lower.includes(item.nameMs.toLowerCase()) || lower.includes(item.nameEn.toLowerCase())
     ).slice(0, 4).map((item) => item.id);
 
     return res.status(200).json({ success: true, text, suggestedDishIds, mode: 'gemini' });
   } catch (error) {
     console.error('Gemini request failed:', error);
-    return res.status(200).json({ success: true, ...localAnswer(prompt, language), mode: 'local_fallback' });
+    return res.status(200).json({ success: true, ...localAnswer(prompt, language, menu), mode: 'local_fallback' });
   }
 }
